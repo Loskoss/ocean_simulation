@@ -1,7 +1,7 @@
 
 # Ocean Wave Simulation
 
-This project simulates an ocean surface using OpenGL with GLUT. It generates various types of waves based on predefined parameters and renders them in a 3D environment.
+This project simulates an ocean surface using OpenGL with GLUT. It generates various types of waves based on predefined parameters and renders them in a 3D environment.The project uses sine waves to simulate the ocean surface
 
 ## Features
 
@@ -52,6 +52,10 @@ To compile and run the ocean wave simulation, follow these steps:
    - Arrow keys: Rotate the view.
    - WASD keys: Move the camera.
    - Plus (+) and minus (-) keys: Zoom in and out.
+
+## Future Work
+- Add fft and gpu support
+- use gestner and try different wave generating algorithms
 
 Enjoy exploring the simulated ocean environment!
 
