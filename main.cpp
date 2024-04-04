@@ -1,7 +1,17 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <GL/glut.h>
+#include <GL/gl.h> // Include OpenGL header
 #include <fftw3.h>
 #include "wave.h"
+#include <thread>
+#include <mutex>
+#include <GL/glext.h>
+#include <GLES2/gl2.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 using namespace std;
 
@@ -16,6 +26,66 @@ GLfloat cameraY = 0.0f;
 GLfloat cameraZ = 50.0f; // Initial camera distance
 GLfloat zoomSpeed = 10.0f;
 GLfloat moveSpeed = 1.0f;
+
+mutex oceanMutex;
+
+GLint shaderProgram;
+
+// Function to load shader source code from file
+string loadShaderFromFile(const string& filename) {
+    ifstream file(filename);
+    stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+// Function to compile shader and check for errors
+GLuint compileShader(GLenum shaderType, const string& source) {
+    GLuint shader = glCreateShader(shaderType);
+    const char* sourceCStr = source.c_str();
+    glShaderSource(shader, 1, &sourceCStr, NULL);
+    glCompileShader(shader);
+
+    // Check compilation status
+    GLint success;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetShaderInfoLog(shader, 512, NULL, infoLog);
+        cerr << "Shader compilation failed: " << infoLog << endl;
+        glDeleteShader(shader);
+        return 0;
+    }
+
+    return shader;
+}
+
+// Function to create shader program
+GLuint createShaderProgram(const string& vertexShaderSource, const string& fragmentShaderSource) {
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+
+    // Check linking status
+    GLint success;
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        cerr << "Shader program linking failed: " << infoLog << endl;
+        return 0;
+    }
+
+    // Delete shaders (no longer needed after linking)
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    return shaderProgram;
+}
 
 GLvoid callback_special(int key, int x, int y)
 {
@@ -43,9 +113,15 @@ GLvoid callback_special(int key, int x, int y)
 GLvoid initGL()
 {
     GLfloat position[] = {0.0f, 5.0f, 10.0f, 0.0};
+    GLfloat ambient[] = {0.2f, 0.2f, 0.2f, 1.0f};
+    GLfloat diffuse[] = {0.7f, 0.7f, 0.7f, 1.0f};
+    GLfloat specular[] = {1.0f, 1.0f, 1.0f, 1.0f};
 
     // Enable light
     glLightfv(GL_LIGHT0, GL_POSITION, position);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specular);
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
 
@@ -54,10 +130,31 @@ GLvoid initGL()
 
     glEnable(GL_DEPTH_TEST);
 
-    glClearColor(255, 255, 255, 255);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
-float t = 0.0;
+float t = 0.00;
+
+void updateOceanHeights() {
+    while (true) {
+        {
+            lock_guard<mutex> lock(oceanMutex);
+            t += 0.015;
+            o_object->update_heights(t);
+        }
+        // Add sleep to control update rate
+        this_thread::sleep_for(chrono::milliseconds(10));
+    }
+}
+
+// Function to calculate model-view-projection matrix
+glm::mat4 calculateModelViewProjectionMatrix() {
+    glm::mat4 model = glm::mat4(1.0f);
+    glm::mat4 view = glm::lookAt(glm::vec3(cameraX, cameraY, cameraZ), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 projection = glm::perspective(glm::radians(60.0f), 800.0f / 600.0f, 0.1f, 10000.0f);
+    glm::mat4 mvp = projection * view * model;
+    return mvp;
+}
 
 GLvoid window_display()
 {
@@ -86,19 +183,36 @@ GLvoid window_display()
     // Apply initial translation for base viewing angle
     glTranslatef(-50, -15, -50);
 
-    // Update heights of ocean points
-    t += 0.007;
-    o_object->update_heights(t);
+    // Lock mutex before accessing ocean data
+    {
+        lock_guard<mutex> lock(oceanMutex);
 
-    // Draw the scene
-    glPolygonMode(GL_FRONT, GL_LINE);
-    o_object->display();
+        // Use the shader program
+        glUseProgram(shaderProgram);
+
+        // Pass uniform variables to the shader (e.g., time for animation)
+        GLint timeLocation = glGetUniformLocation(shaderProgram, "time");
+        if (timeLocation != -1) {
+            glUniform1f(timeLocation, t); // Assuming 't' is the time variable used for animation
+        }
+
+        // Calculate model-view-projection matrix
+        glm::mat4 modelViewProjectionMatrix = calculateModelViewProjectionMatrix();
+
+        // Get the location of the uniform variable in the shader program
+        GLuint mvpLocation = glGetUniformLocation(shaderProgram, "modelViewProjectionMatrix");
+
+        // Set the uniform variable in the shader program
+        glUniformMatrix4fv(mvpLocation, 1, GL_FALSE, glm::value_ptr(modelViewProjectionMatrix));
+
+        // Draw the scene
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        o_object->display();
+    }
 
     glutSwapBuffers();
     glFlush();
 }
-
-
 
 GLvoid window_reshape(GLsizei width, GLsizei height)
 {
@@ -163,9 +277,19 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
     glutInitWindowSize(800, 800);
     glutInitWindowPosition(0, 0);
-    glutCreateWindow("TP 2 : Transformaciones");
+    glutCreateWindow("TP 2 ");
 
     initGL();
+
+    // Load shader source code
+    string vertexShaderSource = loadShaderFromFile("water.vert");
+    string fragmentShaderSource = loadShaderFromFile("water.frag");
+
+    // Create shader program
+    shaderProgram = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+
+    // Start a separate thread for updating ocean heights
+    thread oceanThread(updateOceanHeights);
 
     glutDisplayFunc(&window_display);
     glutReshapeFunc(&window_reshape);
@@ -174,5 +298,9 @@ int main(int argc, char **argv)
     glutIdleFunc(&window_idle);
 
     glutMainLoop();
+
+    // Join the ocean thread before exiting
+    oceanThread.join();
+
     return 0;
 }

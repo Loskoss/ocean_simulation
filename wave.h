@@ -94,53 +94,14 @@ void load_waves(string file) {
     float randomnessFactor = distribution(generator);
 
     // // Add randomness to each value
-    // a += (randomnessFactor * 0.2f - 0.1f);  // Adjust factor and range here
-    // b += (randomnessFactor * 0.2f - 0.1f);
-    // c += (randomnessFactor * 0.2f - 0.1f);
+    a += (randomnessFactor * 0.2f - 0.1f);  // Adjust factor and range here
+    b += (randomnessFactor * 0.2f - 0.1f);
+    c += (randomnessFactor * 0.2f - 0.1f);
 
     Wave f(a, b, c, 0);
     waves.push_back(f);
   }
 }
-
-// # this is waves as waves.
-// void load_waves(const std::string& file) {
-//     std::ifstream infile(file);
-//     if (!infile.is_open()) {
-//         std::cerr << "Error: Unable to open file " << file << std::endl;
-//         return;
-//     }
-
-//     // Random number generator for introducing variability
-//     std::random_device rd;
-//     std::mt19937 gen(rd());
-//     std::uniform_real_distribution<GLfloat> disAmplitude(1.0, 3.0); // Vary amplitude between 1 and 3
-//     std::uniform_real_distribution<GLfloat> disFrequency(0.01, 0.03); // Vary frequency between 0.01 and 0.03
-//     std::uniform_real_distribution<GLfloat> disPhase(0.0, 2 * M_PI); // Randomize phase between 0 and 2pi
-
-//     std::string line;
-//     while (std::getline(infile, line)) {
-//         std::istringstream iss(line);
-//         GLfloat length, height;
-//         if (!(iss >> length >> height)) {
-//             std::cerr << "Error: Invalid data format in file " << file << std::endl;
-//             break;
-//         }
-
-//         // Introduce variability in wave properties
-//         GLfloat amplitude = disAmplitude(gen);
-//         GLfloat frequency = disFrequency(gen);
-//         GLfloat phase = disPhase(gen);
-
-//         // Calculate wave parameters based on panel length and height
-//         GLfloat waveAmplitude = height / 2.0; // Half of the panel height
-//         GLfloat waveFrequency = M_PI / length; // Wave frequency inversely proportional to panel length
-
-//         Wave wave(amplitude * waveAmplitude, frequency * waveFrequency, 0.0, phase);
-//         waves.push_back(wave);
-//     }
-//     infile.close();
-// }
 
 
     void create_list_vertex(){
@@ -170,14 +131,6 @@ void create_index_list(){
         for(GLuint z=1; z<m_z; z++){
             GLuint old_index_pos = index_pos;
             for(GLuint x=0; x<n_x-1; x++){
-                //                this->list_index[index_list] index_pos;
-                //                this->list_index[index_list+1] = index_pos-(n_x-1);
-                //                this->list_index[index_list+2] = (index_pos-(n_x-1))-1;
-
-                //                this->list_index[index_list+3] = index_pos + 1;
-                //                this->list_index[index_list+4] = (index_pos+1)-(n_x);
-                //                this->list_index[index_list+5] = index_pos;
-
                 this->list_index.push_back(index_pos);
                 this->list_index.push_back(index_pos-(n_x-1));
                 this->list_index.push_back((index_pos-(n_x-1))-1);
@@ -190,12 +143,6 @@ void create_index_list(){
             index_pos = old_index_pos;
             index_pos += n_x;
         }
-        //        cout << endl << endl;
-        //        cout << list_index.size() << endl << endl;
-        //        for(int i=0;i<list_index.size();i++){
-        //            cout << this->list_index[i] << ',';
-        //        }
-        //        cout << endl;
         this->pointer_list_index = &(this->list_index[0]);
     }
 
@@ -208,3 +155,41 @@ void create_index_list(){
 
 
 #endif // WAVE_H
+    // # this is waves as waves.
+    // void load_waves(const std::string& file) {
+    //     std::ifstream infile(file);
+    //     if (!infile.is_open()) {
+    //         std::cerr << "Error: Unable to open file " << file << std::endl;
+    //         return;
+    //     }
+
+    //     // Random number generator for introducing variability
+    //     std::random_device rd;
+    //     std::mt19937 gen(rd());
+    //     std::uniform_real_distribution<GLfloat> disAmplitude(1.0, 3.0); // Vary amplitude between 1 and 3
+    //     std::uniform_real_distribution<GLfloat> disFrequency(0.01, 0.03); // Vary frequency between 0.01 and 0.03
+    //     std::uniform_real_distribution<GLfloat> disPhase(0.0, 2 * M_PI); // Randomize phase between 0 and 2pi
+
+    //     std::string line;
+    //     while (std::getline(infile, line)) {
+    //         std::istringstream iss(line);
+    //         GLfloat length, height;
+    //         if (!(iss >> length >> height)) {
+    //             std::cerr << "Error: Invalid data format in file " << file << std::endl;
+    //             break;
+    //         }
+
+    //         // Introduce variability in wave properties
+    //         GLfloat amplitude = disAmplitude(gen);
+    //         GLfloat frequency = disFrequency(gen);
+    //         GLfloat phase = disPhase(gen);
+
+    //         // Calculate wave parameters based on panel length and height
+    //         GLfloat waveAmplitude = height / 2.0; // Half of the panel height
+    //         GLfloat waveFrequency = M_PI / length; // Wave frequency inversely proportional to panel length
+
+    //         Wave wave(amplitude * waveAmplitude, frequency * waveFrequency, 0.0, phase);
+    //         waves.push_back(wave);
+    //     }
+    //     infile.close();
+    // }
